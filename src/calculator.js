@@ -1,9 +1,47 @@
-// Supported operations: addition (+), subtraction (-), multiplication (*), and division (/).
+function assertFiniteNumber(value, label) {
+  if (!Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number.`);
+  }
+}
+
+function modulo(a, b) {
+  assertFiniteNumber(a, "Dividend");
+  assertFiniteNumber(b, "Divisor");
+  if (b === 0) {
+    throw new Error("Cannot calculate modulo by zero.");
+  }
+  return a % b;
+}
+
+function power(base, exponent) {
+  assertFiniteNumber(base, "Base");
+  assertFiniteNumber(exponent, "Exponent");
+  return base ** exponent;
+}
+
+function squareRoot(n) {
+  assertFiniteNumber(n, "Operand");
+  if (n < 0) {
+    throw new Error("Cannot calculate the square root of a negative number.");
+  }
+  return Math.sqrt(n);
+}
+
+// Supported operations: addition (+), subtraction (-), multiplication (*), division (/),
+// modulo (%), exponentiation (^), and square root (sqrt).
 const operations = {
   "+": (left, right) => left + right,
   "-": (left, right) => left - right,
   "*": (left, right) => left * right,
-  "/": (left, right) => left / right,
+  "/": (left, right) => {
+    if (right === 0) {
+      throw new Error("Cannot divide by zero.");
+    }
+    return left / right;
+  },
+  "%": modulo,
+  "^": power,
+  sqrt: squareRoot,
 };
 
 const operationAliases = {
@@ -15,19 +53,23 @@ const operationAliases = {
   multiplication: "*",
   divide: "/",
   division: "/",
+  mod: "%",
+  modulo: "%",
+  pow: "^",
+  power: "^",
+  squareroot: "sqrt",
+  "square-root": "sqrt",
 };
 
 const usage = [
-  "Usage: node src/calculator.js <operation> <number> <number>",
-  "Operations: + (addition), - (subtraction), * (multiplication), / (division)",
+  "Usage: node src/calculator.js <operation> <number> [number]",
+  "Binary operations: +, -, *, /, %, ^ (or addition, subtraction, multiplication, division, modulo, power)",
+  "Unary operation: sqrt <number>",
 ].join("\n");
 
-function calculate(operation, left, right) {
+function calculate(operation, ...operands) {
   if (typeof operation !== "string") {
-    throw new Error("Operation must be +, -, *, or /.");
-  }
-  if (!Number.isFinite(left) || !Number.isFinite(right)) {
-    throw new Error("Both operands must be finite numbers.");
+    throw new Error("Operation must be a supported operation.");
   }
 
   const normalizedOperation = operation.toLowerCase();
@@ -35,13 +77,20 @@ function calculate(operation, left, right) {
     ? operationAliases[normalizedOperation]
     : operation;
   if (!Object.hasOwn(operations, symbol)) {
-    throw new Error(`Unsupported operation "${operation}". Use +, -, *, or /.`);
-  }
-  if (symbol === "/" && right === 0) {
-    throw new Error("Cannot divide by zero.");
+    throw new Error(`Unsupported operation "${operation}".`);
   }
 
-  return operations[symbol](left, right);
+  const expectedOperands = symbol === "sqrt" ? 1 : 2;
+  if (operands.length !== expectedOperands) {
+    throw new Error(
+      `Operation "${operation}" requires exactly ${expectedOperands} operand${expectedOperands === 1 ? "" : "s"}.`,
+    );
+  }
+  if (!operands.every(Number.isFinite)) {
+    throw new Error("Operands must be finite numbers.");
+  }
+
+  return operations[symbol](...operands);
 }
 
 function parseNumber(value, label) {
@@ -57,19 +106,18 @@ function parseNumber(value, label) {
 }
 
 function main(args) {
-  if (args.length !== 3) {
+  if (args.length < 2) {
     console.error(usage);
     process.exitCode = 1;
     return;
   }
 
   try {
-    const [operation, firstValue, secondValue] = args;
-    const result = calculate(
-      operation,
-      parseNumber(firstValue, "First operand"),
-      parseNumber(secondValue, "Second operand"),
+    const [operation, ...values] = args;
+    const operands = values.map((value, index) =>
+      parseNumber(value, `Operand ${index + 1}`),
     );
+    const result = calculate(operation, ...operands);
     console.log(result);
   } catch (error) {
     console.error(error.message);
@@ -81,4 +129,4 @@ if (require.main === module) {
   main(process.argv.slice(2));
 }
 
-module.exports = { calculate };
+module.exports = { calculate, modulo, power, squareRoot };
